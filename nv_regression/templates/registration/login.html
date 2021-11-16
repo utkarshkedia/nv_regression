@@ -1,0 +1,15 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+</head>
+<body>
+{% load crispy_forms_tags %}
+<form method = "POST">
+  {% csrf_token %}
+  {{form|crispy}}
+  <input type = "submit">
+  <p>Create an account <a href = "/register">here</a></p>
+
+</form>
+</body>
+</html>
