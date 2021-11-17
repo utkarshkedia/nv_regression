@@ -1,6 +1,18 @@
 from django.shortcuts import render
+from .models import processTracker
+import subprocess, os
+from rest_framework.response import Response
+from django.http import HttpResponse
+import datetime
 
 # Create your views here.
+class processTracker(APIView):
+
+    def get(self,request):
+        processDetails = processTracker.objects.all()
+        serializer = processTrackerSerializer(processDetails, many=True)
+        return Response(serializer.data)
+
 def startTest(request):
     testDetails = {}
 
@@ -98,3 +110,31 @@ def startTest(request):
     testDetails["cwd"] = request.POST["CWD"]
 
     p = subprocess.popen("python test.py")
+    pid = p.pid
+
+    saveProc(pid)
+
+    return redirect('/currProc')
+
+
+def saveProc(request,pid):
+    processObject = processTracker(userEmail=request.user.email, procName=request.POST['pName'], procId=int(pid), timeCreated=datetime.datetime.now())
+    processObject.save()
+    os.waitpid(int(pid))
+    killTest(int(pid))
+
+def killTest(request,procId):
+
+    if request.user.is_authenticated:
+        proc = processTracker.objects.get(procId=int(procId))
+        if proc.userEmail.strip() == request.user.email.strip():
+            os.kill(int(procId))
+            proc.delete()
+        else:
+            return HttpResponse("You are not authorised to kill this process")
+    else:
+        return HttpResponse("Login First")
+
+
+
+
