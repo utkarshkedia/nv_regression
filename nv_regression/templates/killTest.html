@@ -1,0 +1,25 @@
+<html>
+<head>
+<title>Test Termination</title>
+</head>
+<body>
+{% if user.is_authenticated %}
+	<form action = "killTest" method = "POST">
+	<p>
+		Process ID: <input type = "string" name="ProcID">
+	</p>
+	<p>
+		<input type="submit" value = "KILL">
+	</p>
+	</form>
+	<p style="text-align:right;">
+	<a href = "/logout">Logout</a>
+	</p>
+	<p style="text-align:right;">
+	<a href = "/">Go back to home page</a>
+	</p>
+{% else %}
+    <p><a href = "/login">Login</a> or <a href = "/register">Create account</a></p>
+{% endif %}
+</body>
+</html>

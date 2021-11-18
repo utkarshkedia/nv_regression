@@ -1,0 +1,27 @@
+<html>
+<head>
+<title>Links</title>
+</head>
+<body>
+{% if user.is_authenticated %}
+	<p>
+	<a href = "/testInit">Start a Test</a>
+	<p>
+	<a href = "/ongoingTests">Check ongoing tests</a>
+	</p>
+	<p>
+	<a href = "/killInit">Kill a Test</a>
+	</p>
+	<p>
+	<a href ="systemDatabase">Check your setup's Id</a>
+	</p>
+	<p>
+	<a href ="vbiosInfo">Check VBIOS id</a>
+	<p style = "text-align:right;">
+	<a href = "/logout">Logout</a>
+	</p>
+{% else %}
+    <p><a href = "/login">Login</a> or <a href = "/register">Create account</a></p>
+{% endif %}
+</body>
+</html>

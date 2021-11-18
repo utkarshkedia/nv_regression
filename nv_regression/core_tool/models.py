@@ -1,7 +1,7 @@
 from django.db import models
 
 # Create your models here.
-class Sytem(models.Model):
+class systems(models.Model):
     winHostname = models.CharField(max_length=100, blank=True)
     winUsername = models.CharField(max_length=100, blank=True)
     winPassword = models.CharField(max_length=100, blank=True)

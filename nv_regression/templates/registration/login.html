@@ -7,7 +7,7 @@
 <form method = "POST">
   {% csrf_token %}
   {{form|crispy}}
-  <input type = "submit">
+  <input type = "submit" value = "Login">
   <p>Create an account <a href = "/register">here</a></p>
 
 </form>
