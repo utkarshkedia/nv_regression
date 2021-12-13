@@ -17,7 +17,7 @@ def register(response):
             my_group = Group.objects.get(name='new_user')
             user = User.objects.get(username= response.POST["username"])
             my_group.user_set.add(user)
-        return redirect("/")
+            return redirect("/")
     else:
         #form = UserCreationForm()
         form = RegisterForm()

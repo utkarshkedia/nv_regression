@@ -14,4 +14,4 @@ class systemsSerializer(serializers.ModelSerializer):
 class processTrackerSerializer(serializers.ModelSerializer):
     class Meta:
         model = processTracker
-        fields = ('procId','procName','userEmail','timeCreated')
+        fields = ('procId','procName','username','timeCreated')

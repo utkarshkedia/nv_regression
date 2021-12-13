@@ -9,14 +9,19 @@ import psutil
 from rest_framework.response import Response
 from rest_framework import status
 from rest_framework.views import APIView
+from pathlib import Path
+import json
 
 # Create your views here.
 class processTracker(APIView):
 
     def get(self,request):
-        processDetails = processTracker.objects.all()
-        serializer = processTrackerSerializer(processDetails, many=True)
-        return Response(serializer.data)
+        try:
+            processDetails = processTracker.objects.all()
+            serializer = processTrackerSerializer(processDetails, many=True)
+            return Response(serializer.data)
+        except:
+            return HttpResponse("No tests are running at the moment")
 
 class vbiosInfo(APIView):
 
@@ -24,6 +29,7 @@ class vbiosInfo(APIView):
         vbiosDetails = vbios.objects.all()
         serializer = vbiosSerializer(vbiosDetails, many=True)
         return Response(serializer.data)
+
     def post(self,request):
         serializer = vbiosSerializer(data=request.data)
         if serializer.is_valid():
@@ -38,7 +44,6 @@ class systemsDetail(APIView):
         systemDetails = systems.objects.all()
         serializer = systemsSerializer(systemDetails, many=True)
         return Response(serializer.data)
-
 
 def startTest(request):
     testDetails = {}
@@ -136,12 +141,24 @@ def startTest(request):
     #cwd
     testDetails["cwd"] = request.POST["CWD"].strip()
 
-    p = subprocess.popen("python test.py")
+    #store in a json config file
+    baseDir = Path(__file__).resolve().parent.parent
+    configParentPenDir = os.path.join(baseDir,"config_files")
+    configParentDir = os.path.join(configParentPenDir,request.user.username)
+    if os.path.exists(configParentDir):
+        pass
+    else:
+        os.mkdir(configParentDir)
+
+    with open(os.path.join(configParentDir,"config.json"),'w+') as json_cfg:
+        json.dump(testDetails,json_cfg,indent=4)
+
+    p = subprocess.popen("python ./test.py {}".format(request.user.username))
     pid = p.pid
 
     saveProc(pid)
 
-    return redirect('/links')
+    return redirect('/')
 
 
 def saveProc(request,procId):
@@ -155,15 +172,16 @@ def killTest(request,procId):
     if request.user.is_authenticated:
         try:
             proc = processTracker.objects.get(procId=int(procId))
-            if proc.userEmail.strip() == request.user.email.strip():
+            if proc.username.strip() == request.user.username.strip():
                 proc.delete()
                 if psutil.pid_exists(int(procId)):
                     os.kill(int(procId))
-        except:
-            return HttpResponse("This process does not exist")
 
-        else:
-            return HttpResponse("You are not authorised to kill this process")
+            else:
+                return HttpResponse("You are not authorised to kill this process")
+
+        except:
+            return HttpResponse("Could not kill this process")
     else:
         return HttpResponse("Login First")
 

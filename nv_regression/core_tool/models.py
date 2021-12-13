@@ -26,7 +26,7 @@ class vbios(models.Model):
         return self.name_of_the_gpu
 
 class processTracker(models.Model):
-    userEmail = models.CharField(max_length=100)
+    username = models.CharField(max_length=100)
     procName = models.CharField(max_length=100,blank=True)
     procId = models.IntegerField(primary_key=True)
     timeCreated = models.DateTimeField()

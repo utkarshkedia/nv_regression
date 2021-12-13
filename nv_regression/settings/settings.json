@@ -1,0 +1,7 @@
+{
+	"vbiosBaseDir = ["\\builds\prerelease\BIOS","nvidia","pc"],
+	"vbiosClBaseDir = ["\\dc7-cdot15-scr01\gfw_backup\DVS","nvidia","pc"],
+	"modsFamilyPenPath" = "\\netapp-hq\quickturn\Updates\TestDiags\x-release\Linux\"
+	
+}
+	
