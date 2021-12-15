@@ -11,6 +11,7 @@ from rest_framework import status
 from rest_framework.views import APIView
 from pathlib import Path
 import json
+import paramiko
 
 # Create your views here.
 class processTracker(APIView):
@@ -48,11 +49,11 @@ class systemsDetail(APIView):
 def startTest(request):
     testDetails = {}
 
-    #userDetail
-    testDetails["userID"]
-
     #systemDetail
-    testDetails["systemIDs"] = request.POST['System_IDs']
+    systemIDs = request.POST['System_IDs'].strip()
+    systemIDs = systemIDs.split(",")
+    distinctProcesses = len(systemIDs)
+    testDetails["systemIDs"] = systemIDs
 
     #vbiosDetail
     if 'is_VBIOS_Regression' in request.POST:
@@ -83,6 +84,10 @@ def startTest(request):
     #modsDetails
     if 'is_MODS_Test' in request.POST:
         testDetails["modsTest"]["modsFamily"]=request.POST["MODS_Family"].strip()
+        if "is_MODS_Present" in request.POST:
+            testDetails["modsTest"]["modsPresent"] = True
+        else:
+            testDetails["modsTest"]["modsPresent"] = False
 
         if 'Test0' in request.POST:
             testDetails["modsTest"]["Test"] = "modsInit"
@@ -142,40 +147,67 @@ def startTest(request):
     testDetails["cwd"] = request.POST["CWD"].strip()
 
     #store in a json config file
-    baseDir = Path(__file__).resolve().parent.parent
-    configParentPenDir = os.path.join(baseDir,"config_files")
-    configParentDir = os.path.join(configParentPenDir,request.user.username)
-    if os.path.exists(configParentDir):
-        pass
-    else:
-        os.mkdir(configParentDir)
+    pid = ""
+    modsRunning = ""
+    for systemID in systemIDs:
+        testDetails["systemID"] = systemID
+        baseDir = Path(__file__).resolve().parent.parent
+        configParentPenDir = os.path.join(baseDir,"config_files")
+        configParentDir = os.path.join(configParentPenDir,request.user.username)
+        if os.path.exists(configParentDir):
+            pass
+        else:
+            os.mkdir(configParentDir)
 
-    with open(os.path.join(configParentDir,"config.json"),'w+') as json_cfg:
-        json.dump(testDetails,json_cfg,indent=4)
+        with open(os.path.join(configParentDir,"config.json"),'w+') as json_cfg:
+            json.dump(testDetails,json_cfg,indent=4)
 
-    p = subprocess.popen("python ./test.py {}".format(request.user.username))
-    pid = p.pid
+        p = subprocess.Popen("python ./test.py {}".format(request.user.username))
+        pid = pid  + str(p.pid) + ","
+        modsRunning = modsRunning + "f" + ","
+        time.sleep(5)
 
-    saveProc(pid)
+    processObject = processTracker(userName=request.user.username, systemIDs=request.POST["system_IDs"].strip(), modsRunningStatus = modsRunning, procName=request.POST['pName'], procIDs=pid,timeCreated=datetime.datetime.now())
+    processObject.save()
 
     return redirect('/')
 
 
-def saveProc(request,procId):
-    processObject = processTracker(userEmail=request.user.email, procName=request.POST['pName'], procId=int(procId), timeCreated=datetime.datetime.now())
-    processObject.save()
-    os.waitpid(int(procId))
-    killTest(int(procId))
+#def saveProc(request,procId):
+#    processObject = processTracker(userEmail=request.user.email, procName=request.POST['pName'], procId=int(procId), timeCreated=datetime.datetime.now())
+#    processObject.save()
+#    os.waitpid(int(procId))
+#    killTest(int(procId))
 
-def killTest(request,procId):
+def killTest(request):
 
     if request.user.is_authenticated:
         try:
-            proc = processTracker.objects.get(procId=int(procId))
+            serialID = request.POST["SerialID"]
+            proc = processTracker.objects.get(id=int(serialID))
+            procIDs = proc.procIDs.split(",")
+            procIDs = procIDs[0:len(procIDs)-1]
+            systemIDs = proc.systemIDs.split(",")
             if proc.username.strip() == request.user.username.strip():
+                for procID in procIDs:
+                    if psutil.pid_exists(int(procID)):
+                        os.kill(int(procID))
+
+                    shmooIndex = procIDs.index(procID)
+                    systemID = systemIDs[shmooIndex]
+                    hostname = systems.objects.get(id=int(systemID)).debHostname
+                    username = systems.objects.get(id=int(systemID)).debUsername
+                    password = systems.objects.get(id=int(systemID)).debPassword
+                    modsRunningStatus = processTracker.objects.get(id=int(serialID)).modsRunningStatus.split(",")[shmooIndex]
+                    #login and kill mods in each test setup
+                    if modsRunningStatus == "t":
+                        ssh = paramiko.SSHClient()
+                        ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+                        ssh.connect(hostname=hostname, username=username, password=password, port=22)
+                        ssh.exec_command("killall -e mods")
+                        ssh.close()
+
                 proc.delete()
-                if psutil.pid_exists(int(procId)):
-                    os.kill(int(procId))
 
             else:
                 return HttpResponse("You are not authorised to kill this process")

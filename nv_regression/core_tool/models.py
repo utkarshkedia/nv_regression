@@ -14,6 +14,7 @@ class systems(models.Model):
     ubuUsername = models.CharField(max_length=100, blank=True)
     ubuPassword = models.CharField(max_length=100, blank=True)
     ubuBootIndex = models.IntegerField()
+    currentOS = models.CharField(max_length = 100, blank=True)
     remark = models.CharField(max_length=200, null=True, blank=True)
 
 class vbios(models.Model):
@@ -28,5 +29,7 @@ class vbios(models.Model):
 class processTracker(models.Model):
     username = models.CharField(max_length=100)
     procName = models.CharField(max_length=100,blank=True)
-    procId = models.IntegerField(primary_key=True)
+    procIDs = models.CharField(max_length = 100)
+    systemIDs = models.CharField(max_length = 100)
+    modsRunningStatus = models.CharField(max_length = 100)
     timeCreated = models.DateTimeField()

@@ -1,7 +1,11 @@
 {
 	"vbiosBaseDir = ["\\builds\prerelease\BIOS","nvidia","pc"],
 	"vbiosClBaseDir = ["\\dc7-cdot15-scr01\gfw_backup\DVS","nvidia","pc"],
-	"modsFamilyPenPath" = "\\netapp-hq\quickturn\Updates\TestDiags\x-release\Linux\"
+	"modsFamilyPenPath" = "\\netapp-hq\quickturn\Updates\TestDiags\x-release\Linux",
+	"defaultCWD" = "/mnt/storage/VBIOS",
+	"nvmtPath" = "\\netapp-hq02\sc_med\nvmt\Linux\nvmt",
+	"testSystemFilesBaseDir" = "test_system_files",
+	"testSystemBaseDir" = "\mnt\storage\nv_regression"
 	
 }
 	

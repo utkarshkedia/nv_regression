@@ -63,14 +63,16 @@
 			<input type="checkbox" name="is_MODS_Regression" value="is_MODS_Regression" id="is_MODS_Regression" onclick="showHide('is_MODS_Regression','MODS_Detail')"/>
 			<label for="is_MODS_Regression">Select for MODS Test </label><br>
 			<p id = "MODS_Detail" style="display:none;">
-				Enter MODS Family (ex: R400, R450) : <input type = "string" name="MODS_Family"><br><br>
+				Enter MODS Family (ex: R400, R450) : <input type = "string" name="MODS_Family"><br>
+				<input type="checkbox" name="is_MODS_Present" value="is_MODS_Present">
+				<label for = "is_MODS_Present">Select if MODS does not need to be transferred to the Current Working Directory</label><br><br>
 				Select the MODS test:<br>
 				<input type="checkbox" name="Test0" value="MODS init" id="Test0">
 				<label for="Test0">Perform MODS init test</label><br>
 				<input type="checkbox" name="Other_Test" value="Other_Test" id="Other_Test">
 				<label for="Other_Test">Other MODS Test,</label>
 				MODS Test Number:<input type ="string" name = "MODS_Test_Number"><br><br>
-				Mention all the arguments for the MODS test:<input type="string" name = "MODS_Test_Arguments"><br><br>
+				Mention all the arguments for the MODS test(seperated by commas(,)):<input type="string" name = "MODS_Test_Arguments"><br><br>
 				
 				<input type="checkbox" name="is_MODS_Shmoo" value="is_MODS_Shmoo" id="is_MODS_Shmoo" onclick="showHide('is_MODS_Shmoo','MODS_Shmoo_Detail')"/>
 				<label for="is_MODS_Shmoo">Select for MODS shmoo </label><br>

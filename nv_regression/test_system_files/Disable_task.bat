@@ -1,0 +1,1 @@
+SCHTASKS /CHANGE /TN "MyTasks\Run_autochar" /DISABLE

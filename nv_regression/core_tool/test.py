@@ -2,6 +2,9 @@ import json,sys,os
 from.views import killTest
 from .models import processTracker,vbios,systems
 from threading import Thread
+import paramiko
+from scp import SCPClient
+import time
 
 procId = os.getpid()
 if __name__ == "__main__":
@@ -22,13 +25,14 @@ if __name__ == "__main__":
             settings = json.load(json_file)
     except Exception as e:
 
-    systemIDs = jsonCfg["systemIDs"]
-    systemIDs = systemIDs.split(",")
-    n = len(systemIDs)
-    for i in range(n):
-        Thread
+    startTest(jsonCfg,settings)
 
-def startTest(jsonCfg,settings,systemID):
+def startTest(jsonCfg,settings):
+
+    #setting Default Parameters
+    baseDir = Path(__file__).resolve().parent.parent
+    if jsonCfg["cwd"] == '':
+        jsonCfg["cwd"] = settings["defaultCWD"]
 
     #create ROM list
     romPathList = []
@@ -39,6 +43,7 @@ def startTest(jsonCfg,settings,systemID):
         if jsonCfg["vbiosFlash"]["shmooStatus"] == False:
             if jsonCfg["vbiosFlash"]["vbiosDirectory"] != '':
                 romPath = jsonCfg["vbiosFlash"]["vbiosDirectory"]
+                romName = romPath.split("\\").split[-1]
             else:
                 vbiosID = jsonCfg["vbiosFlash"]["vbiosID"]
                 chipName = vbios.objects.get(id=int(vbiosID)).chipName
@@ -155,9 +160,96 @@ def startTest(jsonCfg,settings,systemID):
             except:
                 ######
 
-
-
     # connect to the test system
+
+    if romPathList.len() == 0:
+        romPathList.append("nullElement")
+
+    for romPath in romPathList:
+        shmooIndex = romPathList.index(romPath)
+        if romPath == "nullElement" :
+            pass
+        else:
+            #transfer the ROM
+            try:
+                with SCPClient(ssh.get_transport()) as scp:
+                    scp.put(romPath, jsonCfg["cwd"])
+            except:
+                ###
+
+            #transfer nvmt
+            try:
+                with SCPClient(ssh.get_transport()) as scp:
+                    scp.put(settings["nvmt"], jsonCfg["cwd"])
+            except:
+                ###
+
+            #transfer nvflash shell file
+            try:
+                with SCPClient(ssh.get_transport()) as scp:
+                    scp.put(os.path.join(baseDir,settings["testSystemFilesBaseDir"],"nvflash.sh"), jsonCfg["cwd"])
+            except:
+                ####
+
+            #Edit and start flashing
+            fileObject = sftp.file(os.path.join(jsonCfg["cwd"],"nvflash.sh"), 'r+')
+            testCommands = fileObject.readlines()
+            fileObject.close()
+            n = len(test_commands)
+            testCommands[0] = "cd " + jsonCfg["cwd"] + "\n"
+            testCommands[2] = "./nvflash_eng -A" + " " + romName
+            for param in jsonCfg["vbiosFlash"]["params"]:
+                testCommands[2] = testCommands[2] + " " + param
+            testCommands[2] = testCommands[2] + " >> nvflash.log\n"
+            fileObject = sftp.file(os.path.join(jsonCfg["cwd"],"nvflash.sh"), 'w+')
+            fileObject.writelines(testCommands)
+            fileObject.close()
+
+            # running the test
+            testRunCommand = os.path.join(jsonCfg["cwd"],"nvflash.sh")
+            ssh.exec_command(testRunCommand)
+
+            time.sleep(30)
+
+        for modsPath in modsPathList:
+            modsShmooIndex = modsPathList.index(modsPath)
+            modsVersion = modsVersionList[modsShmooIndex]
+            if jsonCfg["modsTest"]["modsPresent"] == True:
+                pass
+            else:
+                #transfer MODS to the CWD
+                if shmooIndex == 0:
+                    try:
+                        sftp.mkdir(os.path.join(jsonCfg["cwd"],modsVersion))
+                        files = os.listdir(modsPath)
+                        for file in files:
+                            path = os.path.join(modsPath,file)
+                            with SCPClient(ssh.get_transport()) as scp:
+                                scp.put(path, os.path.join(jsonCfg["cwd"],modsVersion))
+                    except:
+                        with open(result_path + hostname + 'Exceptions.txt', 'a+') as f:
+                            f.write("Cannot copy Mods to the romote system\n")
+
+                    # transfer extract.py to the test system
+                    try:
+                        with SCPClient(ssh.get_transport()) as scp:
+                            scp.put(os.path.join(baseDir,settings["testSystemFilesBaseDir"],"extract.py"),settings["testSystemBaseDir"])
+                    except:
+
+                    fileObject = sftp.file(os.path.join(settings["testSystemBaseDir"],"extract.py"), 'r+')
+                    contents = fileObject.readlines()
+                    contents[2] = "files=os.listdir(" + "'" + cwd + "'" + ")" + "\n"
+                    contents[5] = "    path=" + "'" + cwd + "'" + "+ '/' + file" + "\n"
+                    fileObject.close()
+                    fileObject = sftp.file(os.path.join(settings["testSystemBaseDir"],"extract.py"), 'w+')
+                    fileObject.writelines(contents)
+                    fileObject.close()
+
+                    ssh.exec_command('python3 /localhome/lab/extract.py')
+
+                #Run MODS Test
+
+
 
 
 
