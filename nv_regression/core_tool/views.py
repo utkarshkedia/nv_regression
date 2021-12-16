@@ -90,11 +90,11 @@ def startTest(request):
             testDetails["modsTest"]["modsPresent"] = False
 
         if 'Test0' in request.POST:
-            testDetails["modsTest"]["Test"] = "modsInit"
+            testDetails["modsTest"]["test"] = "modsInit"
         elif 'Other_Test' in request.POST:
-            testDetails["modsTest"]["Test"] = request.POST["MODS_Test_Number"].strip()
+            testDetails["modsTest"]["test"] = request.POST["MODS_Test_Number"].strip()
 
-        testDetails["modsTest"]["Arguments"] = request.POST["MODS_Test_Arguments"].strip()
+        testDetails["modsTest"]["arguments"] = request.POST["MODS_Test_Arguments"].strip()
         if 'is_MODS_Shmoo' in request.POST:
             testDetails["modsTest"]["shmooStatus"] = True
             testDetails["modsTest"]["shmooInitial"] = request.POST["MODS_Shmoo_Initial"].strip()
@@ -149,25 +149,32 @@ def startTest(request):
     #store in a json config file
     pid = ""
     modsRunning = ""
+    testStatus = ""
+    baseDir = Path(__file__).resolve().parent.parent
+    configParentPenDir = os.path.join(baseDir, "config_files")
+    configParentDir = os.path.join(configParentPenDir, request.user.username)
+    if os.path.exists(configParentDir):
+        files = os.listdir(configParentDir)
+        userProcNum = len(files) + 1
+        configParentDir = os.path.join(configParentDir, str(userProcNum))
+        os.mkdir(os.path.join(configParentDir))
+    else:
+        userProcNum = 1
+        configParentDir = os.path.join(configParentDir, str(userProcNum))
+        os.mkdirs(os.path.join(configParentDir))
+
     for systemID in systemIDs:
         testDetails["systemID"] = systemID
-        baseDir = Path(__file__).resolve().parent.parent
-        configParentPenDir = os.path.join(baseDir,"config_files")
-        configParentDir = os.path.join(configParentPenDir,request.user.username)
-        if os.path.exists(configParentDir):
-            pass
-        else:
-            os.mkdir(configParentDir)
-
         with open(os.path.join(configParentDir,"config.json"),'w+') as json_cfg:
             json.dump(testDetails,json_cfg,indent=4)
 
-        p = subprocess.Popen("python ./test.py {}".format(request.user.username))
+        p = subprocess.Popen("python ./test.py {} {} {}".format(request.user.username,userProcNum,request.user.email))
         pid = pid  + str(p.pid) + ","
         modsRunning = modsRunning + "f" + ","
+        testStatus = testStatus + "f" + ","
         time.sleep(5)
 
-    processObject = processTracker(userName=request.user.username, systemIDs=request.POST["system_IDs"].strip(), modsRunningStatus = modsRunning, procName=request.POST['pName'], procIDs=pid,timeCreated=datetime.datetime.now())
+    processObject = processTracker(userName=request.user.username, systemIDs=request.POST["system_IDs"].strip(), modsRunningStatus = modsRunning, procName=request.POST['pName'], procIDs=pid,timeCreated=datetime.datetime.now(),userProcNum = userProcNum,testCompletionStatus = testStatus)
     processObject.save()
 
     return redirect('/')

@@ -6,6 +6,8 @@
 	"nvmtPath" = "\\netapp-hq02\sc_med\nvmt\Linux\nvmt",
 	"testSystemFilesBaseDir" = "test_system_files",
 	"testSystemBaseDir" = "\mnt\storage\nv_regression"
+	"outlookPassword = "Ready2wrk@NVIDIA",
+	"outlookEmail = "ukedia@NVIDIA.com"
 	
 }
 	
