@@ -21,7 +21,7 @@
 <!--<body style="background-image:url('NVIDIA.png');background-position: center;background-size: cover;">-->
 <body>
 {% if user.is_authenticated %}
-	<form action="test" method="post">
+	<form action="runTest" method="post">
 		{% csrf_token %}
 		<p style="text-align:right;"><a href = "/logout">Logout</a></p>
 		<p id = "System_Detail" >
@@ -44,7 +44,7 @@
 				<br><br>
 				For a specific VBIOS, enter the complete VBIOS path : <input type = "string" name="VBIOS_Directory"><br><br>
 				OR<br><br>
-				Enter VBIOS id : <input type="string" name="VBIOS_ID">&emsp;<a href = "/vbiosDatabse">Check VBIOS Id </a><br>
+				Enter VBIOS id : <input type="string" name="VBIOS_ID">&emsp;<a href = "/vbiosDatabase">Check VBIOS Id </a><br>
 				<input type="checkbox" name="is_VBIOS_Shmoo" value="is_VBIOS_Shmoo" id="is_VBIOS_Shmoo" onclick="showHide('is_VBIOS_Shmoo','VBIOS_Shmoo_Detail')"/>
 				<label for="is_VBIOS_Shmoo">Select for VBIOS shmoo</label><br>
 				OR<br>

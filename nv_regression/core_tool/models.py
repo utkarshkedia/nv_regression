@@ -5,15 +5,15 @@ class systems(models.Model):
     winHostname = models.CharField(max_length=100, blank=True)
     winUsername = models.CharField(max_length=100, blank=True)
     winPassword = models.CharField(max_length=100, blank=True)
-    winBootIndex = models.IntegerField()
+    winBootIndex = models.IntegerField(blank=True,null=True)
     debHostname = models.CharField(max_length=100, blank=True)
     debUsername = models.CharField(max_length=100, blank=True)
     debPassword = models.CharField(max_length=100, blank=True)
-    debBootIndex = models.IntegerField()
+    debBootIndex = models.IntegerField(blank=True,null=True)
     ubuHostname = models.CharField(max_length=100, blank=True)
     ubuUsername = models.CharField(max_length=100, blank=True)
     ubuPassword = models.CharField(max_length=100, blank=True)
-    ubuBootIndex = models.IntegerField()
+    ubuBootIndex = models.IntegerField(blank=True,null=True)
     currentOS = models.CharField(max_length = 100, blank=True)
     remark = models.CharField(max_length=200, null=True, blank=True)
 
@@ -24,7 +24,7 @@ class vbios(models.Model):
     romName = models.CharField(max_length=100)
 
     def __str__(self):
-        return self.name_of_the_gpu
+        return self.chipName
 
 class processTracker(models.Model):
     userProcNum = models.IntegerField()
@@ -34,4 +34,7 @@ class processTracker(models.Model):
     systemIDs = models.CharField(max_length = 100)
     modsRunningStatus = models.CharField(max_length = 100)
     testCompletionStatus = models.CharField(max_length = 100)
-    timeCreated = models.DateTimeField()
+    timeCreated = models.DateTimeField(blank=True,null=True)
+
+    def __str__(self):
+        return self.username

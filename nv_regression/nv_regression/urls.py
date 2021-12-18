@@ -24,10 +24,11 @@ urlpatterns = [
     path('',v1.home),
     path('register/',v2.register),
     path('killInit/',v1.killInit),
-    path('killTest/',v1.killTest),
-    path('ongoingTests/',v1.processTracker.as_view()),
+    path('killInit/killTest',v1.killTest),
+    path('ongoingTests/',v1.processViewer.as_view()),
     path('vbiosDatabase/',v1.vbiosInfo.as_view()),
     path('systemDatabase/',v1.systemsDetail.as_view()),
     path('testInit/',v1.testInit),
+    path('testInit/runTest',v1.startTest),
     path("",include("django.contrib.auth.urls")),
 ]

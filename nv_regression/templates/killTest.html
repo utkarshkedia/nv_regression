@@ -5,8 +5,9 @@
 <body>
 {% if user.is_authenticated %}
 	<form action = "killTest" method = "POST">
+	{% csrf_token %}
 	<p>
-		Process Serial ID: <input type = "string" name="ProcID">
+		Process Serial ID: <input type = "string" name="SerialID">
 	</p>
 	<p>
 		<input type="submit" value = "KILL">

@@ -9,7 +9,7 @@ class vbiosSerializer(serializers.ModelSerializer):
 class systemsSerializer(serializers.ModelSerializer):
     class Meta:
         model = systems
-        fields = ('id','winHostname','winBootIndex','debHostname','debBootIndex','ubuHostname','ubuBootIndex','remark')
+        fields = ('id','winHostname','winBootIndex','debHostname','debBootIndex','ubuHostname','ubuBootIndex','currentOS','remark')
 
 class processTrackerSerializer(serializers.ModelSerializer):
     class Meta:

@@ -1,6 +1,6 @@
-from django.shortcuts import render
+from django.shortcuts import render,redirect
 from .models import processTracker, vbios, systems
-import subprocess, os
+import subprocess, os, time
 from rest_framework.response import Response
 from django.http import HttpResponse
 import datetime
@@ -14,7 +14,7 @@ import json
 import paramiko
 
 # Create your views here.
-class processTracker(APIView):
+class processViewer(APIView):
 
     def get(self,request):
         try:
@@ -57,6 +57,7 @@ def startTest(request):
 
     #vbiosDetail
     if 'is_VBIOS_Regression' in request.POST:
+        testDetails["vbiosFlash"] = {}
         testDetails["vbiosFlash"]["vbiosDirectory"] = request.POST["VBIOS_Directory"].strip()
         testDetails["vbiosFlash"]["vbiosID"] = request.POST["VBIOS_ID"].strip()
         testDetails["vbiosFlash"]["params"] = []
@@ -161,30 +162,23 @@ def startTest(request):
     else:
         userProcNum = 1
         configParentDir = os.path.join(configParentDir, str(userProcNum))
-        os.mkdirs(os.path.join(configParentDir))
+        os.makedirs(os.path.join(configParentDir))
 
     for systemID in systemIDs:
         testDetails["systemID"] = systemID
         with open(os.path.join(configParentDir,"config.json"),'w+') as json_cfg:
             json.dump(testDetails,json_cfg,indent=4)
 
-        p = subprocess.Popen("python ./test.py {} {} {}".format(request.user.username,userProcNum,request.user.email))
+        p = subprocess.Popen("python {} {} {} {}".format(os.path.join(baseDir,"core_tool","tests.py"),request.user.username,userProcNum,request.user.email))
         pid = pid  + str(p.pid) + ","
         modsRunning = modsRunning + "f" + ","
         testStatus = testStatus + "f" + ","
         time.sleep(5)
 
-    processObject = processTracker(userName=request.user.username, systemIDs=request.POST["system_IDs"].strip(), modsRunningStatus = modsRunning, procName=request.POST['pName'], procIDs=pid,timeCreated=datetime.datetime.now(),userProcNum = userProcNum,testCompletionStatus = testStatus)
-    processObject.save()
+    process = processTracker(username=request.user.username, systemIDs=request.POST["System_IDs"].strip(), modsRunningStatus = modsRunning, procName=request.POST['pName'], procIDs=pid,timeCreated=datetime.datetime.now(),userProcNum = userProcNum,testCompletionStatus = testStatus)
+    process.save()
 
     return redirect('/')
-
-
-#def saveProc(request,procId):
-#    processObject = processTracker(userEmail=request.user.email, procName=request.POST['pName'], procId=int(procId), timeCreated=datetime.datetime.now())
-#    processObject.save()
-#    os.waitpid(int(procId))
-#    killTest(int(procId))
 
 def killTest(request):
 
@@ -215,6 +209,7 @@ def killTest(request):
                         ssh.close()
 
                 proc.delete()
+                return redirect("/")
 
             else:
                 return HttpResponse("You are not authorised to kill this process")

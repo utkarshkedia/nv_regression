@@ -2,10 +2,10 @@
 	"vbiosBaseDir = ["\\builds\prerelease\BIOS","nvidia","pc"],
 	"vbiosClBaseDir = ["\\dc7-cdot15-scr01\gfw_backup\DVS","nvidia","pc"],
 	"modsFamilyPenPath" = "\\netapp-hq\quickturn\Updates\TestDiags\x-release\Linux",
-	"defaultCWD" = "/mnt/storage/VBIOS",
+	"defaultCWD" = "/mnt/storage/nv_regression",
 	"nvmtPath" = "\\netapp-hq02\sc_med\nvmt\Linux\nvmt",
 	"testSystemFilesBaseDir" = "test_system_files",
-	"testSystemBaseDir" = "\mnt\storage\nv_regression"
+	"testSystemBaseDir" = "/mnt/storage/nv_regression"
 	"outlookPassword = "Ready2wrk@NVIDIA",
 	"outlookEmail = "ukedia@NVIDIA.com"
 	
