@@ -1,5 +1,13 @@
-import json,sys,os
-from models import processTracker,vbios,systems
+import json,sys,os,sys,psutil
+from pathlib import Path
+sys.path.append(str(Path(__file__).resolve().parent.parent))
+from django.conf import settings
+import nv_regression.settings as app_settings
+settings.configure(INSTALLED_APPS=app_settings.INSTALLED_APPS,DATABASES=app_settings.DATABASES,SECRET_KEY = app_settings.SECRET_KEY)
+import django
+django.setup()
+
+from core_tool.models import processTracker,vbios,systems
 from threading import Thread
 import paramiko
 from scp import SCPClient
@@ -75,9 +83,17 @@ def changeFlag(jsonCfg, username, userProcNum, flag, userEmail):
         if testCompleted == True:
             proc.delete()
             send_mail(userEmail)
+            # delete the config directory as well
+            baseDir = Path(__file__).resolve().parent.parent
+            configParentPenDir = os.path.join(baseDir, "config_files")
+            configDir = os.path.join(configParentPenDir, username, str(userProcNum))
+            if os.path.exists(configDir):
+                os.rmdir(configDir)
 
-        #safe fail mechanism in case this process does not terminate itself
-        os.kill(procId)
+            #safe fail mechanism in case this process does not terminate itself
+            p = psutil.Process(procId)
+            if psutil.pid_exists(int(procId)):
+                p.kill()
 
 def startTest(jsonCfg,settings,username,userProcNum,userEmail,configParentDir):
 
@@ -86,6 +102,24 @@ def startTest(jsonCfg,settings,username,userProcNum,userEmail,configParentDir):
     if jsonCfg["cwd"] == '':
         jsonCfg["cwd"] = settings["defaultCWD"]
     date = datetime.now().strftime("%d%m%Y_%H%M%S")
+    connector = "/"
+
+    #system Details
+    try:
+        systemID = int(jsonCfg["systemID"])
+        debHostname = systems.objects.get(id=int(systemID)).debHostname
+        debUsername = systems.objects.get(id=int(systemID)).debUsername
+        debPassword = systems.objects.get(id=int(systemID)).debPassword
+        debBootIndex = systems.objects.get(id=int(systemID)).debBootIndex
+        winHostname = systems.objects.get(id=int(systemID)).winHostname
+        winUsername = systems.objects.get(id=int(systemID)).winUsername
+        winPassword = systems.objects.get(id=int(systemID)).winPassword
+        winBootIndex = systems.objects.get(id=int(systemID)).winBootIndex
+    except:
+        finalMessage.append("System ID does not exist \n")
+        with open(os.path.join(configParentDir, "finalResults.txt"), 'w+') as results:
+            results.writelines(finalMessage)
+        changeFlag(jsonCfg, username, userProcNum, 2, userEmail)
 
     #create ROM list
     romPathList = []
@@ -185,10 +219,10 @@ def startTest(jsonCfg,settings,username,userProcNum,userEmail,configParentDir):
         pass
     else:
         modsFamily = jsonCfg["modsTest"]["modsFamily"]
-        modsFamilyPath = os.path.join(settings["ModsFamilyPenPath"], modsFamily)
+        modsFamilyPath = os.path.join(settings["modsFamilyPenPath"], modsFamily)
         if jsonCfg["modsTest"]["shmooStatus"] == False:
             try:
-                allFiles = os.listdir(ModsFamilyPath)
+                allFiles = os.listdir(modsFamilyPath)
                 ctime = 0
                 for file in allFiles:
                     if file.endswith("DO_NOT_USE"):
@@ -232,22 +266,6 @@ def startTest(jsonCfg,settings,username,userProcNum,userEmail,configParentDir):
 
     # connect to the test system
     try:
-        systemID = int(jsonCfg["systemID"])
-        debHostname = systems.objects.get(id=int(systemID)).debHostname
-        debUsername = systems.objects.get(id=int(systemID)).debUsername
-        debPassword = systems.objects.get(id=int(systemID)).debPassword
-        debBootIndex = systems.objects.get(id=int(systemID)).debBootIndex
-        winHostname = systems.objects.get(id=int(systemID)).winHostname
-        winUsername = systems.objects.get(id=int(systemID)).winUsername
-        winPassword = systems.objects.get(id=int(systemID)).winPassword
-        winBootIndex = systems.objects.get(id=int(systemID)).winBootIndex
-    except:
-        finalMessage.append("System ID does not exist \n")
-        with open(os.path.join(configParentDir, "finalResults.txt"), 'w+') as results:
-            results.writelines(finalMessage)
-        changeFlag(jsonCfg, username, userProcNum, 2, userEmail)
-
-    try:
         ssh = paramiko.SSHClient()
         ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
         ssh.connect(hostname=debHostname, username=debUsername, password=debPassword, port=22)
@@ -261,9 +279,9 @@ def startTest(jsonCfg,settings,username,userProcNum,userEmail,configParentDir):
 
     #create cwd and baseDir
     try:
-        ssh.exec_command("mkdir {}".format(jsonCfg["cwd"]))
+        ssh.exec_command("mkdir -p {}".format(jsonCfg["cwd"]))
         time.sleep(3)
-        ssh.exec_command("mkdir {}".format(os.path.join(settings["testSystemBaseDir"], "automationLog", date)))
+        ssh.exec_command("mkdir -p {}".format(connector.join((settings["testSystemBaseDir"], "automationLog", date))))
         time.sleep(2)
     except:
         finalMessage.append("Failed to create/access current working directory in the test system {}".format(debHostname) + "\n")
@@ -271,7 +289,7 @@ def startTest(jsonCfg,settings,username,userProcNum,userEmail,configParentDir):
             results.writelines(finalMessage)
         changeFlag(jsonCfg, username, userProcNum, 2, userEmail)
 
-    if romPathList.len() == 0:
+    if len(romPathList) == 0:
         romPathList.append("nullElement")
 
     for romPath in romPathList:
@@ -294,7 +312,7 @@ def startTest(jsonCfg,settings,username,userProcNum,userEmail,configParentDir):
                 #transfer nvmt
                 try:
                     with SCPClient(ssh.get_transport()) as scp:
-                        scp.put(settings["nvmt"], jsonCfg["cwd"])
+                        scp.put(settings["nvmtPath"], jsonCfg["cwd"])
                 except:
                     finalMessage.append("Failed to transfer NVMT to {}".format(debHostname) + "\n")
                     with open(os.path.join(configParentDir, "finalResults.txt"), 'w+') as results:
@@ -312,26 +330,26 @@ def startTest(jsonCfg,settings,username,userProcNum,userEmail,configParentDir):
                     changeFlag(jsonCfg, username, userProcNum, 2, userEmail)
 
             #Edit and start flashing
-            fileObject = sftp.file(os.path.join(jsonCfg["cwd"],"nvflash.sh"), 'r+')
+            fileObject = sftp.file(connector.join((jsonCfg["cwd"],"nvflash.sh")), 'r+')
             testCommands = fileObject.readlines()
             fileObject.close()
-            n = len(test_commands)
+            n = len(testCommands)
             testCommands[0] = "cd " + jsonCfg["cwd"] + "\n"
             testCommands[2] = "./nvflash_eng -A" + " " + romName
             for param in jsonCfg["vbiosFlash"]["params"]:
                 testCommands[2] = testCommands[2] + " " + param
             testCommands[2] = testCommands[2] + " >> nvflash_" + romVersionList[shmooIndex] +  ".log\n"
-            fileObject = sftp.file(os.path.join(jsonCfg["cwd"],"nvflash.sh"), 'w+')
+            fileObject = sftp.file(connector.join((jsonCfg["cwd"],"nvflash.sh")), 'w+')
             fileObject.writelines(testCommands)
             fileObject.close()
 
             # running the test
-            testRunCommand = os.path.join(jsonCfg["cwd"],"nvflash.sh")
+            testRunCommand = connector.join((jsonCfg["cwd"],"nvflash.sh"))
             ssh.exec_command(testRunCommand)
             time.sleep(30)
 
             #read nvflash.log and check if it flashed
-            fileObject = sftp.file(os.path.join(jsonCfg["cwd"]),"nvflash_{}.log".format(romVersionList[shmooIndex]))
+            fileObject = sftp.file(connector.join((jsonCfg["cwd"],"nvflash_{}.log".format(romVersionList[shmooIndex]))))
             logLines = fileObject.readlines()
             fileObject.close()
             errorKeywords = ["segmentation fault","mismatch","a system restart might be required","no nvidia test device found"]
@@ -342,7 +360,7 @@ def startTest(jsonCfg,settings,username,userProcNum,userEmail,configParentDir):
                         flashError = True
 
             #transfer nvflash.log
-            copyNvflashCommand = "cp " + os.path.join(jsonCfg["cwd"], "nvflash_{}.log".format(romVersion)) + " " + os.path.join(settings["testSystemBaseDir"], "automationLog", date)
+            copyNvflashCommand = "mv '" + connector.join((jsonCfg["cwd"], "nvflash_{}.log".format(romVersion))) + "' '" + connector.join((settings["testSystemBaseDir"], "automationLog", date)) + "'"
             ssh.exec_command(copyNvflashCommand)
 
             if flashError == True:
@@ -350,6 +368,8 @@ def startTest(jsonCfg,settings,username,userProcNum,userEmail,configParentDir):
                 with open(os.path.join(configParentDir, "finalResults.txt"), 'w+') as results:
                     results.writelines(finalMessage)
                 changeFlag(jsonCfg, username, userProcNum, 2, userEmail)
+            else:
+                finalMessage.append("Successfully flashed {} on  {}".format(romVersionList[shmooIndex], debHostname) + "\n")
 
         for modsPath in modsPathList:
             modsShmooIndex = modsPathList.index(modsPath)
@@ -360,17 +380,18 @@ def startTest(jsonCfg,settings,username,userProcNum,userEmail,configParentDir):
                 else:
                     #transfer MODS to the CWD
                     try:
-                        sftp.mkdir(os.path.join(jsonCfg["cwd"],modsVersion))
+                        sftp.mkdir(connector.join((jsonCfg["cwd"],modsVersion)))
                         files = os.listdir(modsPath)
                         for file in files:
                             path = os.path.join(modsPath,file)
                             with SCPClient(ssh.get_transport()) as scp:
-                                scp.put(path, os.path.join(jsonCfg["cwd"],modsVersion))
+                                scp.put(path, connector.join((jsonCfg["cwd"],modsVersion)))
                     except:
                         finalMessage.append("Failed to transfer MODS to {}".format(debHostname) + "\n")
                         with open(os.path.join(configParentDir, "finalResults.txt"), 'w+') as results:
                             results.writelines(finalMessage)
                         changeFlag(jsonCfg, username, userProcNum, 2, userEmail)
+                        
                     # transfer extract.py to the test system
                     try:
                         with SCPClient(ssh.get_transport()) as scp:
@@ -381,66 +402,66 @@ def startTest(jsonCfg,settings,username,userProcNum,userEmail,configParentDir):
                             results.writelines(finalMessage)
                         changeFlag(jsonCfg, username, userProcNum, 2, userEmail)
 
-                    fileObject = sftp.file(os.path.join(settings["testSystemBaseDir"],"extract.py"), 'r+')
+                    fileObject = sftp.file(connector.join((settings["testSystemBaseDir"],"extract.py")), 'r+')
                     contents = fileObject.readlines()
                     contents[3] = "cwd = " + jsonCfg["cwd"] + "\n"
                     contents[4] = "modsVersion = " + modsVersion + "\n"
                     fileObject.close()
-                    fileObject = sftp.file(os.path.join(settings["testSystemBaseDir"],"extract.py"), 'w+')
+                    fileObject = sftp.file(connector.join((settings["testSystemBaseDir"],"extract.py")), 'w+')
                     fileObject.writelines(contents)
                     fileObject.close()
 
-                    ssh.exec_command('python3 ' + os.path.join(settings["testSystemBaseDir"],"extract.py"))
+                    ssh.exec_command('python3 ' + connector.join((settings["testSystemBaseDir"],"extract.py")))
 
                 #Run MODS Test
 
                 #transfer shell file to the CWD and edit it
                 try:
                     with SCPClient(ssh.get_transport()) as scp:
-                        scp.put(os.path.join(baseDir, settings["testSystemFilesBaseDir"], "modsTest.sh"), os.path.join(jsonCfg["cwd"],modsVersion))
+                        scp.put(os.path.join(baseDir, settings["testSystemFilesBaseDir"], "modsTest.sh"), connector.join((jsonCfg["cwd"],modsVersion)))
                 except:
                     finalMessage.append("Failed to transfer test files to {}".format(debHostname) + "\n")
                     with open(os.path.join(configParentDir, "finalResults.txt"), 'w+') as results:
                         results.writelines(finalMessage)
                     changeFlag(jsonCfg, username, userProcNum, 2, userEmail)
 
-                fileObject = sftp.file(os.path.join(jsonCfg["cwd"],modsVersion,"modsTest.sh"), 'r+')
+                fileObject = sftp.file(connector.join((jsonCfg["cwd"],modsVersion,"modsTest.sh")), 'r+')
                 testCommands = fileObject.readlines()
                 fileObject.close()
-                testCommands[0] = "cd " + os.path.join(jsonCfg["cwd"],modsVersion) + "\n"
+                testCommands[0] = "cd " + connector.join((jsonCfg["cwd"],modsVersion)) + "\n"
                 if jsonCfg["modsTest"]["test"] == "modsInit":
                     testCommands[1] = "./mods mods.js " + jsonCfg["modsTest"]["arguments"]
                 else:
                     testCommands[1] = "./mods gputest.jse -test " + jsonCfg["modsTest"]["test"] + " " + jsonCfg["modsTest"]["arguments"]
-                fileObject = sftp.file(os.path.join(jsonCfg["cwd"], modsVersion, "modsTest.sh"), 'w+')
+                fileObject = sftp.file(connector.join((jsonCfg["cwd"], modsVersion, "modsTest.sh")), 'w+')
                 fileObject.writelines(testCommands)
                 fileObject.close()
 
             #Run MODS Test
-            testRunCommand = os.path.join(jsonCfg["cwd"],modsVersion,"modsTest.sh")
-            ssh.exec_command("mv " + os.path.join(jsonCfg["cwd"],modsVersion,"mods.log") + " " + os.path.join(jsonCfg["cwd"],modsVersion,"mods_prev.log"))
+            testRunCommand = connector.join((jsonCfg["cwd"],modsVersion,"modsTest.sh"))
+            ssh.exec_command("mv '" + connector.join((jsonCfg["cwd"],modsVersion,"mods.log")) + "' '" + connector.join((jsonCfg["cwd"],modsVersion,"mods_prev.log")) + "'")
             time.sleep(3)
             ssh.exec_command(testRunCommand)
 
             #change the flag
-            changeFlag(jsonCfg,username,userProcNum)
+            changeFlag(jsonCfg,username,userProcNum,1,userEmail)
 
-            files = sftp.listdir(os.path.join(jsonCfg["cwd"],modsVersion))
+            files = sftp.listdir(connector.join((jsonCfg["cwd"],modsVersion)))
             modsExecuted = False
             lastToLastModified = 0
             while modsExecuted == False:
                 time.sleep(60)
                 if "mods.log" in files:
-                    utime = sftp.stat(os.path.join(jsonCfg["cwd"],modsVersion,"mods.log")).st_mtime
+                    utime = sftp.stat(connector.join((jsonCfg["cwd"],modsVersion,"mods.log"))).st_mtime
                     lastModified = datetime.fromtimestamp(utime)
                     if last_modified == lastToLastModified:
                         modsExecuted = True
                     else:
                         lastToLastModified = lastModified
                 else:
-                    files = sftp.listdir(os.path.join(jsonCfg["cwd"],modsVersion))
+                    files = sftp.listdir(connector.join((jsonCfg["cwd"],modsVersion)))
 
-            fileObject = sftp.file(os.path.join(jsonCfg["cwd"],modsVersion,"mods.log"), 'r+')
+            fileObject = sftp.file(connector.join((jsonCfg["cwd"],modsVersion,"mods.log")), 'r+')
             contents = fileObject.readlines()
             notification = contents[len(contents) - 1]
             fileObject.close()
@@ -466,16 +487,16 @@ def startTest(jsonCfg,settings,username,userProcNum,userEmail,configParentDir):
 
                 if assertion == True and error == False:
                     ssh.exec_command("killall -e mods")
-                    changeFlag(jsonCfg, username, userProcNum, 1)
+                    changeFlag(jsonCfg, username, userProcNum, 1,userEmail)
                     finalMessage.append("On {} MODS Test asserted for {} {}\n".format(debHostname,romVersion,modsVersion))
                 elif assertion == False and error == False:
-                    changeFlag(jsonCfg, username, userProcNum, 1)
+                    changeFlag(jsonCfg, username, userProcNum, 1,userEmail)
                     finalMessage.append("On {} MODS Test passed for {} {}\n".format(debHostname, romVersion, modsVersion))
                 elif assertion == False and error == True:
-                    changeFlag(jsonCfg, username, userProcNum, 1)
+                    changeFlag(jsonCfg, username, userProcNum, 1,userEmail)
                     finalMessage.append("On {} MODS Test failed for {} {}\n".format(debHostname, romVersion, modsVersion))
 
-            copyModsCommand = "cp " + os.path.join(jsonCfg["cwd"],modsVersion,"mods.log") + " " + os.path.join(settings["testSystemBaseDir"],"automationLog",date,"mods_" + modsVersion +".log")
+            copyModsCommand = "mv '" + connector.join((jsonCfg["cwd"],modsVersion,"mods.log")) + "' '" + connector.join((settings["testSystemBaseDir"],"automationLog",date,"mods_" + modsVersion +".log")) + "'"
             ssh.exec_command(copyModsCommand)
 
     sftp.close()
@@ -484,26 +505,26 @@ def startTest(jsonCfg,settings,username,userProcNum,userEmail,configParentDir):
 
 procId = os.getpid()
 finalMessage = []
-print("reached pt1")
 if __name__ == "__main__":
-    print("reached pt2")
     username = sys.argv[1]
     userProcNum = sys.argv[2]
     userEmail = sys.argv[3]
 
     baseDir = Path(__file__).resolve().parent.parent
 
+    configParentPenDir = os.path.join(baseDir, "config_files")
+    configParentDir = os.path.join(configParentPenDir, username, str(userProcNum))
+    with open(os.path.join(configParentDir, "config.json"), 'r') as json_file:
+        jsonCfg = json.load(json_file)
+
+
     settingsParentDir = os.path.join(baseDir, "settings")
     with open(os.path.join(settingsParentDir, "settings.json"), 'r') as json_file:
         settings = json.load(json_file)
-    print("reached pt3")
-    configParentPenDir = os.path.join(baseDir, "config_files")
-    configParentDir = os.path.join(configParentPenDir,username,str(userProcNum))
-    with open(os.path.join(configParentDir,"config.json"),'r') as json_file:
-        jsonCfg = json.load(json_file)
-    print("reached pt4")
+
+
     startTest(jsonCfg,settings,username,userProcNum,userEmail,configParentDir)
-    print("reached pt5")
+
     with open(os.path.join(configParentDir,"finalResults.txt"),'w+') as results:
         results.writelines(finalMessage)
 

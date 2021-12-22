@@ -83,7 +83,8 @@ def startTest(request):
         testDetails["vbiosFlash"] = ''
 
     #modsDetails
-    if 'is_MODS_Test' in request.POST:
+    if 'is_MODS_Regression' in request.POST:
+        testDetails["modsTest"] = {}
         testDetails["modsTest"]["modsFamily"]=request.POST["MODS_Family"].strip()
         if "is_MODS_Present" in request.POST:
             testDetails["modsTest"]["modsPresent"] = True
@@ -108,6 +109,7 @@ def startTest(request):
 
     #driverDetails
     if 'is_Driver_Test' in request.POST:
+        testDetails["driverTest"] = {}
         testDetails["driverTest"]["driverFamily"]=request.POST["DRIVER_Family"].strip()
         if 'is_DRIVER_Shmoo' in request.POST:
             testDetails["driverTest"]["shmooStatus"] = True
@@ -120,6 +122,7 @@ def startTest(request):
 
     #autocharDetails
     if 'is_Autochar' in request.POST:
+        testDetails["autocharTest"] = {}
         testDetails["autocharTest"]["apps"] = []
         for i in range(1, 22):
             if 'app' + str(i) in request.POST:
@@ -169,7 +172,7 @@ def startTest(request):
         with open(os.path.join(configParentDir,"config.json"),'w+') as json_cfg:
             json.dump(testDetails,json_cfg,indent=4)
 
-        p = subprocess.Popen("python {} {} {} {}".format(os.path.join(baseDir,"core_tool","tests.py"),request.user.username,userProcNum,request.user.email))
+        p = subprocess.Popen("python {} {} {} {}".format(os.path.join(baseDir,"core_tool","test.py"),request.user.username,userProcNum,request.user.email))
         pid = pid  + str(p.pid) + ","
         modsRunning = modsRunning + "f" + ","
         testStatus = testStatus + "f" + ","
@@ -186,13 +189,15 @@ def killTest(request):
         try:
             serialID = request.POST["SerialID"]
             proc = processTracker.objects.get(id=int(serialID))
+            userProcNum = proc.userProcNum
             procIDs = proc.procIDs.split(",")
             procIDs = procIDs[0:len(procIDs)-1]
             systemIDs = proc.systemIDs.split(",")
             if proc.username.strip() == request.user.username.strip():
                 for procID in procIDs:
                     if psutil.pid_exists(int(procID)):
-                        os.kill(int(procID))
+                        p = psutil.Process(int(procID))
+                        p.kill()
 
                     shmooIndex = procIDs.index(procID)
                     systemID = systemIDs[shmooIndex]
@@ -209,6 +214,13 @@ def killTest(request):
                         ssh.close()
 
                 proc.delete()
+                #delete the config directory as well
+                baseDir = Path(__file__).resolve().parent.parent
+                configParentPenDir = os.path.join(baseDir, "config_files")
+                configDir = os.path.join(configParentPenDir, request.user.username, str(userProcNum))
+                if os.path.exists(configDir):
+                    os.rmdir(configDir)
+
                 return redirect("/")
 
             else:

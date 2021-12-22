@@ -17,14 +17,12 @@ class systems(models.Model):
     currentOS = models.CharField(max_length = 100, blank=True)
     remark = models.CharField(max_length=200, null=True, blank=True)
 
+
 class vbios(models.Model):
     chipName = models.CharField(max_length=100)
     memoryType = models.CharField(max_length=100)
     boardName = models.CharField(max_length=100)
     romName = models.CharField(max_length=100)
-
-    def __str__(self):
-        return self.chipName
 
 class processTracker(models.Model):
     userProcNum = models.IntegerField()
@@ -36,5 +34,3 @@ class processTracker(models.Model):
     testCompletionStatus = models.CharField(max_length = 100)
     timeCreated = models.DateTimeField(blank=True,null=True)
 
-    def __str__(self):
-        return self.username
