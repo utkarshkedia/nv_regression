@@ -11,7 +11,8 @@ from rest_framework import status
 from rest_framework.views import APIView
 from pathlib import Path
 import json
-import paramiko
+import paramiko, shutil
+from userAuthentication.decorators import allowed_users
 
 # Create your views here.
 class processViewer(APIView):
@@ -46,6 +47,7 @@ class systemsDetail(APIView):
         serializer = systemsSerializer(systemDetails, many=True)
         return Response(serializer.data)
 
+@allowed_users(allowed_roles=["qual_engineer","admin"])
 def startTest(request):
     testDetails = {}
 
@@ -183,6 +185,7 @@ def startTest(request):
 
     return redirect('/')
 
+@allowed_users(allowed_roles=["qual_engineer","admin"])
 def killTest(request):
 
     if request.user.is_authenticated:
@@ -217,9 +220,9 @@ def killTest(request):
                 #delete the config directory as well
                 baseDir = Path(__file__).resolve().parent.parent
                 configParentPenDir = os.path.join(baseDir, "config_files")
-                configDir = os.path.join(configParentPenDir, request.user.username, str(userProcNum))
-                if os.path.exists(configDir):
-                    os.rmdir(configDir)
+                configParentDir = os.path.join(configParentPenDir, request.user.username, str(userProcNum))
+                if os.path.exists(configParentDir):
+                    shutil.rmtree(configParentDir)
 
                 return redirect("/")
 

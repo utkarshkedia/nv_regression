@@ -3,7 +3,7 @@ import tarfile
 connector = "/"
 cwd = "/mnt/storage/mods"
 modsVersion = ""
-modsPath = connector.join((cwd, modsVersion))
+modsPath = connector.join((cwd, str(modsVersion)))
 files=os.listdir(modsPath)
 for file in files:
     if file.endswith(".tgz") or file.endswith(".gz"):
