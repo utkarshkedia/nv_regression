@@ -286,18 +286,29 @@ def startTest(jsonCfg,settings,username,userProcNum,userEmail,configParentDir):
             changeFlag(jsonCfg, username, userProcNum, 2, userEmail)
 
         sftp = ssh.open_sftp()
+        channel = ssh.invoke_shell()
 
+        channelData = str()
         #create cwd and baseDir
-        try:
-            ssh.exec_command("mkdir -p {}".format(jsonCfg["cwd"]))
-            time.sleep(3)
-            ssh.exec_command("mkdir -p {}".format(connector.join((settings["testSystemBaseDir"], "automationLog", date))))
-            time.sleep(2)
-        except:
-            finalMessage.append("Failed to create/access current working directory in the test system {}".format(debHostname) + "\n")
-            with open(os.path.join(configParentDir, "finalResults.txt"), 'a+') as results:
-                results.writelines(finalMessage)
-            changeFlag(jsonCfg, username, userProcNum, 2, userEmail)
+        channel.send("mkdir -p {}\n".format(jsonCfg["cwd"]))
+        time.sleep(2)
+        channel.send("mkdir -p {}\n".format(connector.join((settings["testSystemBaseDir"], "automationLog", date))))
+        time.sleep(2)
+        while True:
+            if channel.recv_ready():
+                channelData += channel.recv(9999).decode(encoding='utf-8')
+            else:
+                continue
+            if "File exists" in channelData:
+                break
+            elif "cannot create directory" in channelData or "Permission denied" in channelData :
+                finalMessage.append("Failed to create/access current working directory in the test system {}".format(debHostname) + "\n")
+                with open(os.path.join(configParentDir, "finalResults.txt"), 'a+') as results:
+                    results.writelines(finalMessage)
+                changeFlag(jsonCfg, username, userProcNum, 2, userEmail)
+                break
+            else:
+                break
 
         if len(romPathList) == 0:
             romPathList.append("nullElement")
@@ -396,19 +407,67 @@ def startTest(jsonCfg,settings,username,userProcNum,userEmail,configParentDir):
                     if jsonCfg["modsTest"]["modsPresent"] == True:
                         pass
                     else:
-                        #transfer MODS to the CWD
+                        #transfer mountLocation to the test system, edit it and execute it
                         try:
-                            ssh.exec_command("mkdir {}".format(connector.join((jsonCfg["cwd"],modsVersion))))
-                            files = os.listdir(modsPath)
-                            for file in files:
-                                path = os.path.join(modsPath,file)
-                                with SCPClient(ssh.get_transport()) as scp:
-                                    scp.put(path, connector.join((jsonCfg["cwd"],modsVersion)))
+                            with SCPClient(ssh.get_transport()) as scp:
+                                scp.put(os.path.join(baseDir,settings["testSystemFilesBaseDir"],"mountLocation"),settings["testSystemBaseDir"])
                         except:
-                            finalMessage.append("Failed to transfer MODS to {}".format(debHostname) + "\n")
+                            finalMessage.append("Failed to transfer test files to {}".format(debHostname) + "\n")
                             with open(os.path.join(configParentDir, "finalResults.txt"), 'a+') as results:
                                 results.writelines(finalMessage)
                             changeFlag(jsonCfg, username, userProcNum, 2, userEmail)
+
+                        fileObject = sftp.file(connector.join((settings["testSystemBaseDir"],"mountLocation")), 'r+')
+                        contents = fileObject.readlines()
+                        contents[30] = "MountPath='{}'\n".format(settings["modsMountLocation"])
+                        contents[31] = "username = '{}'\n".format(debUsername)
+                        contents[32] = "password = '{}'\n".format(debPassword)
+                        fileObject.close()
+                        fileObject = sftp.file(connector.join((settings["testSystemBaseDir"],"mountLocation")), 'w+')
+                        fileObject.writelines(contents)
+                        fileObject.close()
+
+                        #mount MODS Location
+                        channelData = str()
+                        channel.send(connector.join((settings["testSystemBaseDir"],"mountLocation")) + "\n")
+                        time.sleep(2)
+                        while True:
+                            if channel.recv_ready():
+                                channelData += channel.recv(9999).decode(encoding='utf-8')
+                                alNumChannelData = ''.join(char for char in channelData if char.isalnum())
+                            else:
+                                continue
+                            if "error" in alNumChannelData or "Error" in alNumChannelData or "cannot stat" in alNumChannelData:
+                                finalMessage.append("Failed to mount mods directory in the test system {}".format(debHostname) + "\n")
+                                with open(os.path.join(configParentDir, "finalResults.txt"), 'a+') as results:
+                                    results.writelines(finalMessage)
+                                changeFlag(jsonCfg, username, userProcNum, 2, userEmail)
+                                break
+                            elif alNumChannelData.strip().endswith("mountLocation"):
+                                continue
+                            else:
+                                break
+
+                        #transfer MODS to the CWD
+                        channelData = str()
+                        channel.send("scp -r  {} {}\n".format(connector.join((settings["modsMountLocation"],modsFamily,modsVersion)),jsonCfg["cwd"]))
+                        time.sleep(2)
+                        while True:
+                            if channel.recv_ready():
+                                channelData += channel.recv(9999).decode(encoding='utf-8')
+                                alNumChannelData = ''.join(char for char in channelData if char.isalnum())
+                            else:
+                                continue
+                            if "error" in alNumChannelData or "Error" in alNumChannelData or "cannot stat" in alNumChannelData:
+                                finalMessage.append("Failed to transfer MODS to the test system {}".format(debHostname) + "\n")
+                                with open(os.path.join(configParentDir, "finalResults.txt"), 'a+') as results:
+                                    results.writelines(finalMessage)
+                                changeFlag(jsonCfg, username, userProcNum, 2, userEmail)
+                                break
+                            elif alNumChannelData.endswith(''.join(char for char in jsonCfg["cwd"].split("/")[-1] if char.isalnum())):
+                                continue
+                            else:
+                                break
 
                         # transfer extract.py to the test system
                         try:
@@ -528,10 +587,11 @@ def startTest(jsonCfg,settings,username,userProcNum,userEmail,configParentDir):
                 copyModsCommand = "mv '" + connector.join((jsonCfg["cwd"],modsVersion,"mods.log")) + "' '" + connector.join((settings["testSystemBaseDir"],"automationLog",date,"mods_" + romVersion + "_" + modsVersion +".log")) + "'"
                 ssh.exec_command(copyModsCommand)
 
+        channel.close()
         sftp.close()
         ssh.close()
     except Exception as e:
-        finalMessage.append("Failed with an error {} for {}\n".format(e, debHostname))
+        finalMessage.append("Failed with an error :  {} for {}\n".format(e, debHostname))
         with open(os.path.join(configParentDir, "finalResults.txt"), 'a+') as results:
             results.writelines(finalMessage)
         changeFlag(jsonCfg, username, userProcNum, 2, userEmail)

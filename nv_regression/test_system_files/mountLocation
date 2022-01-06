@@ -1,0 +1,34 @@
+###############
+mountLocation()
+{
+    mountDest=$1
+    mountPoint=$2
+    accUsername=$3
+    accPassword=$4
+
+    if [ ! -d $mountPoint ]; then
+        sudo mkdir -p $mountPoint
+    fi
+    
+    
+    # use lab@nvidia.com account to auto login
+    if ! mount | grep $mountPoint > /dev/null ; then
+        sudo mount -t cifs $mountDest $mountPoint -o username=lab,password=7@bu53rs,domain=nvidia.com,sec=ntlmv2,noserverino,ro,vers=2.0
+    fi
+    
+    # lab@nvidia.com account auto login failed
+    if ! mount | grep $mountPoint > /dev/null; then
+        sudo mount -t cifs $mountDest $mountPoint -o username=$accUsername,password=$accPassword,domain=nvidia.com,sec=ntlmv2,noserverino,ro,vers=2.0
+        if ! mount | grep $mountPoint > /dev/null; then
+            echo "Unable to mount $mountDest location ...!"
+        fi
+    fi
+    
+    
+}
+
+MountLocation="//netapp-hq/quickturn/Updates/TestDiags/x-release/Linux"
+MountPath="/mnt/modsDirMount"
+username="root"
+password="nvidian"
+mountLocation "$MountLocation" "$MountPath" "$username" "$password"
